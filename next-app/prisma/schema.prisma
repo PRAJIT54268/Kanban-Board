@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth standard models
+model Account {
+  id                 String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId             String  @db.ObjectId
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String?   @unique
+  password      String?
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  // Kanban relationships
+  ownedBoards   Board[]       @relation("OwnedBoards")
+  memberBoards  BoardMember[]
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Kanban Models
+model Board {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  type      String   // 'normal' or 'project'
+  createdAt DateTime @default(now())
+
+  ownerId   String   @db.ObjectId
+  owner     User     @relation("OwnedBoards", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  tasks     Task[]
+  members   BoardMember[]
+}
+
+model BoardMember {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  boardId   String   @db.ObjectId
+  userId    String   @db.ObjectId
+  joinedAt  DateTime @default(now())
+
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, userId])
+}
+
+model Task {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  column    String
+  priority  String?
+  authorName String? // Track who created the task
+  createdAt DateTime @default(now())
+  
+  boardId   String   @db.ObjectId
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+}
